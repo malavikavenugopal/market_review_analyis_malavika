@@ -1,0 +1,209 @@
+---
+title: "Market Review Analysis"
+author: "Malavika Venugopal"
+format: html
+editor: visual
+---
+
+# Market Review Analysis
+
+## 1. Introduction
+
+**Customer Review Analysis** in analytics refers to the **process of examining customer feedback** (usually in the form of written reviews, ratings, and comments) to extract insights about:
+
+-   **Customer satisfaction**
+
+-   **Product or service performance**
+
+-   **Pain points and areas for improvement**
+
+-   **Sentiment (positive, negative, or neutral)**
+
+-   **Trends in customer needs or preferences**
+
+## 2. Data Pre-processing
+
+```{r echo=FALSE, comment=FALSE, message=FALSE}
+
+
+# Read the CSV file
+text <- read.csv("C:/Users/user/Desktop/MBA-1st Term/IBA/reviews.csv", header = TRUE)
+
+# Extract the 'Review' column
+texts <- text$Review
+
+```
+
+```{r echo=FALSE, comment=FALSE, message=FALSE}
+
+
+library(tm)
+library(slam)
+library(proxy)
+library(wordcloud)
+library(RColorBrewer)
+```
+
+```{r echo=FALSE, comment=FALSE, message=FALSE}
+
+
+# Step 1: Convert the text vector into a text source
+# VectorSource() converts the character vector into a data source suitable for creating a corpus
+text_source <- VectorSource(texts)
+
+# Step 2: Create a Volatile Corpus (VCorpus) from the text source
+# VCorpus creates a corpus object (collection of text documents) stored in memory
+corpus <- VCorpus(text_source)
+
+```
+
+```{r echo=FALSE, comment=FALSE, message=FALSE}
+
+# Step 3: Text cleaning and preprocessing (optional but recommended before analysis)
+
+# Convert all text to lowercase
+corpus <- tm_map(corpus, content_transformer(tolower))
+
+# Remove punctuation from the text
+corpus <- tm_map(corpus, removePunctuation)
+
+# Remove common stopwords like 'the', 'is', 'in', etc.
+corpus <- tm_map(corpus, removeWords, stopwords("english"))
+
+# You can also remove numbers if needed
+# corpus <- tm_map(corpus, removeNumbers)
+
+# Strip extra whitespace
+corpus <- tm_map(corpus, stripWhitespace)
+
+# (Optional) You can inspect the cleaned text like this:
+inspect(corpus)
+```
+
+```{r echo=FALSE, comment=FALSE, message=FALSE}
+
+# Step 4: Create a Document-Term Matrix (DTM) from the cleaned corpus
+# A Document-Term Matrix is a table where:
+# - Rows represent documents (individual reviews)
+# - Columns represent terms (words)
+# - Each cell shows the frequency of the term in the document
+dtm <- DocumentTermMatrix(corpus)
+
+# Step 5: Inspect the Document-Term Matrix
+# This displays a portion of the matrix (by default, top rows and columns)
+# It helps you see how words are distributed across the documents
+inspect(dtm)
+
+```
+
+```{r echo=FALSE, comment=FALSE, message=FALSE}
+
+
+# Step 6: Calculate Cosine Similarity and Distance between documents
+
+# 'crossprod_simple_triplet_matrix()' computes the dot product between document vectors
+# This gives us the numerator of the cosine similarity formula
+numerator <- crossprod_simple_triplet_matrix(dtm)
+
+# 'col_sums(dtm^2)' calculates the sum of squares of term frequencies for each document
+# We then take the square root of each (i.e., vector magnitudes)
+# Then multiply them to form the denominator of cosine similarity
+denominator <- sqrt(col_sums(dtm^2)) %*% t(sqrt(col_sums(dtm^2)))
+
+# Cosine similarity = (A ⋅ B) / (||A|| * ||B||)
+# This gives a matrix where each element [i, j] is the cosine similarity between document i and j
+cosine_similarity <- numerator / denominator
+
+# Cosine distance = 1 - cosine similarity
+# This converts similarity into a distance metric (0 = identical, closer to 1 = more different)
+cosine_distance <- 1 - cosine_similarity
+
+```
+
+```{r echo=FALSE, comment=FALSE, message=FALSE}
+
+
+# Step 7: Convert the cosine distance object into a standard matrix
+# 'cosine_distance' is usually a special sparse or triangular matrix
+# 'as.matrix()' converts it into a full matrix format for easier inspection or further processing
+cosine_dist_matrix <- as.matrix(cosine_distance)
+
+# Step 8: Print the cosine distance matrix, rounded to 2 decimal places
+# This helps in interpreting the results more easily (e.g., 0.71 instead of 0.7123456)
+print(round(cosine_dist_matrix, 2))
+
+```
+
+```{r echo=FALSE, comment=FALSE, message=FALSE}
+
+
+# Step 9: Open a new graphics window (for Windows systems)
+windows()
+
+# Step 10: Plot a heatmap of the cosine distance matrix
+# - 'col' sets the color gradient from white (low distance) to steelblue (high distance)
+# - 'colorRampPalette(...)' creates a smooth color transition with 100 shades
+heatmap(cosine_dist_matrix, col = colorRampPalette(c("white", "steelblue"))(100))
+
+```
+
+```{r echo=FALSE, comment=FALSE, message=FALSE}
+
+# Load the 'proxy' library for distance calculations
+library(proxy)
+
+# Step 1: Convert the sparse Document-Term Matrix (DTM) to a full matrix
+# Required because 'proxy::dist' works on standard matrices
+dtm_matrix <- as.matrix(dtm)
+
+# Step 2: Compute the cosine distance between documents using the proxy package
+# This gives a distance object suitable for clustering
+dist_obj <- proxy::dist(dtm_matrix, method = "cosine")
+
+# Step 3: Apply hierarchical clustering on the distance object
+# 'ward.D2' minimizes the total within-cluster variance
+hclust_obj <- hclust(dist_obj, method = "ward.D2")
+
+# Step 4: Plot the dendrogram (tree diagram) to visualize document similarity
+# Documents that are closer together on the tree are more similar
+plot(hclust_obj, 
+     labels = paste("Doc", 1:nrow(dtm_matrix)), 
+     main = "Document Clustering (Cosine Distance)")
+
+```
+
+```{r echo=FALSE, comment=FALSE, message=FALSE}
+
+
+
+# Convert DTM to matrix and compute word frequencies
+m <- as.matrix(dtm)
+v <- sort(colSums(m), decreasing = TRUE)
+d <- data.frame(word = names(v), freq = v)
+
+
+set.seed(123)  # for reproducibility
+wordcloud(
+  words = d$word,
+  freq = d$freq,
+  min.freq = 1,
+  max.words = 100,
+  random.order = FALSE,
+  rot.per = 0.35,
+  colors = brewer.pal(8, "Dark2")
+)
+
+
+```
+
+## 3. Insights and Discussion
+
+The analysis provided several actionable insights into Amrlet’s customer feedback. The clustering of documents revealed that certain groups of reviews focused on common experiences, such as delivery speed, product quality, or customer support responsiveness. The word cloud reinforced these findings by surfacing frequent terms that customers used repeatedly, pointing to key product attributes and areas where frustrations arose.
+
+By examining review similarities, Amrlet can monitor emerging issues early, benchmark service performance, and prioritize improvements where dissatisfaction is most concentrated. Equally, clusters of positive feedback highlight strengths that can be emphasized in marketing communication.
+
+## 4. Conclusion
+
+This customer review analysis demonstrates the value of text mining and similarity measures in understanding customer sentiment at scale. Through data preprocessing, document-term matrix construction, cosine similarity, clustering, and visualization, the study uncovered recurring themes in customer experiences.
+
+For Amrlet, the insights highlight what customers value, where dissatisfaction emerges, and how product features and services are being perceived. Regularly performing such analysis can enable the company to proactively improve customer satisfaction, address operational weaknesses, and strengthen loyalty by aligning business actions with customer voice.
