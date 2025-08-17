@@ -27,7 +27,7 @@ editor: visual
 
 
 # Read the CSV file
-text <- read.csv("C:/Users/user/Desktop/MBA-1st Term/IBA/reviews.csv", header = TRUE)
+text <- read.csv("C:/Users/user/Desktop/MBA-1st Term/IBA/Market Review Analysis/reviews.csv", header = TRUE)
 
 # Extract the 'Review' column
 texts <- text$Review
